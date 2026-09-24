@@ -215,6 +215,28 @@ def ridge_regression(y, tx, lambda_):
     return w, compute_loss(y, tx, w).item()
 
 
+def compute_logistic_loss(y, tx, w):
+    """Computes the negative log-likelihood for logistic regression.
+
+    Args:
+        y: shape=(N, ). The labels, in {0, 1}.
+        tx: shape=(N, D)
+        w: shape=(D, ). The vector of model parameters.
+
+    Returns:
+        the value of the loss (a scalar), corresponding to the input parameters w.
+    """
+
+    # L = -1/N sum y*log(sigma(z)) + (1-y)*log(1-sigma(z))   with z = xw
+    #   = 1/N sum log(1 + e^z) - y*z
+
+    z = tx @ w
+
+    # logaddexp(0, z) is log(1 + e^z) computed without overflowing for large z,
+    # which the naive log(1 + exp(z)) would do as soon as a point saturates.
+    return np.mean(np.logaddexp(0, z) - y*z)
+
+
 def compute_logistic_gradient(y, tx, w):
     """Computes the gradient at w.
 
@@ -226,23 +248,11 @@ def compute_logistic_gradient(y, tx, w):
     Returns:
         An array of shape (2, ) (same shape as w), containing the gradient of the loss at w.
     """
-    # ***************************************************
-    # INSERT YOUR CODE HERE
-    # TODO: compute gradient vector
-    # ***************************************************
-    # raise NotImplementedError
 
-    xT = tx.T
-
-    # print(f'X^T: {xT.shape}')
-    # print(f'w: {w.shape}')
-    # print(f'y: {y.shape}')
-
-    e = y - tx@w
-
-    # print(f'e: {e.shape}')
-
-    g = -(xT@e)/y.shape[0]
+    # L' = 1/m sum (1/(1 + e^(-wx-b)) - y)x
+    
+    # g = np.sum(1/(1+np.exp(-w@tx))-y)*tx/y.shape[0]
+    g = (1/(1+np.exp(-tx@w))-y) @ tx/y.shape[0]
     
     return g
 
@@ -261,7 +271,38 @@ def logistic_regression(y, tx, initial_w, max_iters, gamma):
         w: shape=(D,). The weight vector after the last iteration.
         loss: float. The negative log-likelihood corresponding to ``w``.
     """
-    raise NotImplementedError
+    ws = [initial_w]
+    losses = []
+    w = initial_w
+    for n_iter in range(max_iters):
+        # ***************************************************
+        # INSERT YOUR CODE HERE
+        # TODO: compute gradient and loss
+        # ***************************************************
+        # raise NotImplementedError
+        
+        loss = compute_logistic_loss(y,tx,w)
+        g = compute_logistic_gradient(y,tx,w)
+        
+        # ***************************************************
+        # INSERT YOUR CODE HERE
+        # TODO: update w by gradient
+        # ***************************************************
+        # raise NotImplementedError
+        w = w - gamma*g
+
+        # store w and loss
+        ws.append(w)
+        losses.append(loss)
+        # print(
+        #     "GD iter. {bi}/{ti}: loss={l}, w0={w0}, w1={w1}".format(
+        #         bi=n_iter, ti=max_iters - 1, l=loss, w0=w[0], w1=w[1]
+        #     )
+        # )
+
+    losses.append(compute_logistic_loss(y,tx,w))
+
+    return ws[-1], losses[-1]
     
 
 
@@ -284,4 +325,38 @@ def reg_logistic_regression(y, tx, lambda_, initial_w, max_iters, gamma):
         loss: float. The negative log-likelihood corresponding to ``w``,
             *without* the penalty term.
     """
-    raise NotImplementedError
+    ws = [initial_w]
+    losses = []
+    w = initial_w
+    for n_iter in range(max_iters):
+        # ***************************************************
+        # INSERT YOUR CODE HERE
+        # TODO: compute gradient and loss
+        # ***************************************************
+        # raise NotImplementedError
+        
+        loss = compute_logistic_loss(y,tx,w)
+        g = compute_logistic_gradient(y,tx,w)
+
+        # Same as linear regression (ridge regression)
+        g  = g + lambda_ * 2*w
+        
+        # ***************************************************
+        # INSERT YOUR CODE HERE
+        # TODO: update w by gradient
+        # ***************************************************
+        # raise NotImplementedError
+        w = w - gamma*g
+
+        # store w and loss
+        ws.append(w)
+        losses.append(loss)
+        # print(
+        #     "GD iter. {bi}/{ti}: loss={l}, w0={w0}, w1={w1}".format(
+        #         bi=n_iter, ti=max_iters - 1, l=loss, w0=w[0], w1=w[1]
+        #     )
+        # )
+
+    losses.append(compute_logistic_loss(y,tx,w))
+
+    return ws[-1], losses[-1]
