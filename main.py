@@ -28,7 +28,7 @@ MODELS = [
     ("logistic_regression", partial(logistic_regression, max_iters=MAX_ITERS, gamma=GAMMA), True),
     (
         "reg_logistic_regression",
-        partial(reg_logistic_regression, lambda_=LAMBDA_, max_iters=MAX_ITERS, gamma=GAMMA),
+        lambda y, tx, initial_w: reg_logistic_regression(y, tx, LAMBDA_, initial_w, MAX_ITERS, GAMMA),
         True,
     ),
 ]
