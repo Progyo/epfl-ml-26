@@ -16,9 +16,9 @@ from implementations import (
 DATA_DIR = "dataset"
 SEED = 42
 VAL_RATIO = 0.2
-MAX_ITERS = 100
-GAMMA = 0.1
-LAMBDA_ = 0.1
+MAX_ITERS = 200
+GAMMA = 0.01
+LAMBDA_ = 0.2
 
 MODELS = [
     ("mean_squared_error_gd", partial(mean_squared_error_gd, max_iters=MAX_ITERS, gamma=GAMMA), False),
