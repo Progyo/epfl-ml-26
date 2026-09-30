@@ -1,14 +1,37 @@
+from functools import partial
+
 import numpy as np
 
 from cleaner import clean_data
 from helpers import load_csv_data, create_csv_submission
-from implementations import logistic_regression
+from implementations import (
+    least_squares,
+    logistic_regression,
+    mean_squared_error_gd,
+    mean_squared_error_sgd,
+    reg_logistic_regression,
+    ridge_regression,
+)
 
 DATA_DIR = "dataset"
 SEED = 42
 VAL_RATIO = 0.2
 MAX_ITERS = 100
 GAMMA = 0.1
+LAMBDA_ = 0.1
+
+MODELS = [
+    ("mean_squared_error_gd", partial(mean_squared_error_gd, max_iters=MAX_ITERS, gamma=GAMMA), False),
+    ("mean_squared_error_sgd", partial(mean_squared_error_sgd, max_iters=MAX_ITERS, gamma=GAMMA), False),
+    ("least_squares", lambda y, tx, initial_w: least_squares(y, tx), False),
+    ("ridge_regression", lambda y, tx, initial_w: ridge_regression(y, tx, LAMBDA_), False),
+    ("logistic_regression", partial(logistic_regression, max_iters=MAX_ITERS, gamma=GAMMA), True),
+    (
+        "reg_logistic_regression",
+        partial(reg_logistic_regression, lambda_=LAMBDA_, max_iters=MAX_ITERS, gamma=GAMMA),
+        True,
+    ),
+]
 
 
 def split_data(x, y, val_ratio=VAL_RATIO, seed=SEED):
@@ -21,9 +44,11 @@ def split_data(x, y, val_ratio=VAL_RATIO, seed=SEED):
     return x[train_idx], y[train_idx], x[val_idx], y[val_idx]
 
 
-def predict(x, w):
+def predict(x, w, is_logistic):
     """Predict labels in {0, 1} from features x and weights w."""
-    return (1 / (1 + np.exp(-x @ w)) >= 0.5).astype(int)
+    if is_logistic:
+        return (1 / (1 + np.exp(-x @ w)) >= 0.5).astype(int)
+    return (x @ w >= 0.5).astype(int)
 
 
 def accuracy(y, y_pred):
@@ -37,14 +62,22 @@ def main():
 
     x_tr, y_tr, x_val, y_val = split_data(x_train, y_train)
 
-    initial_w = np.zeros(x_tr.shape[1])
-    w, loss = logistic_regression(y_tr, x_tr, initial_w, MAX_ITERS, GAMMA)
-    print(f"train loss: {loss:.4f}, val accuracy: {accuracy(y_val, predict(x_val, w)):.4f}")
+    best_name, best_fn, best_is_logistic, best_acc = None, None, None, -np.inf
+    for name, fn, is_logistic in MODELS:
+        initial_w = np.zeros(x_tr.shape[1])
+        w, loss = fn(y_tr, x_tr, initial_w)
+        val_acc = accuracy(y_val, predict(x_val, w, is_logistic))
+        print(f"{name}: train loss={loss:.4f}, val accuracy={val_acc:.4f}")
+
+        if val_acc > best_acc:
+            best_name, best_fn, best_is_logistic, best_acc = name, fn, is_logistic, val_acc
+
+    print(f"best model: {best_name} (val accuracy={best_acc:.4f})")
 
     initial_w = np.zeros(x_train.shape[1])
-    w, _ = logistic_regression(y_train, x_train, initial_w, MAX_ITERS, GAMMA)
-    y_pred = predict(x_test, w)
-    create_csv_submission(test_ids, y_pred, "submission.csv")
+    w, _ = best_fn(y_train, x_train, initial_w)
+    y_pred = predict(x_test, w, best_is_logistic)
+    create_csv_submission(test_ids, np.where(y_pred == 1, 1, -1), "submission.csv")
 
 
 if __name__ == "__main__":
