@@ -59,7 +59,8 @@ ALL_COLUMN_NAMES = [
 
 DROP = [
     # admin, dates, IDs
-    "_STATE", "FMONTH", "IDATE", "IMONTH", "IDAY", "IYEAR", "DISPCODE",
+    #"_STATE",
+      "FMONTH", "IDATE", "IMONTH", "IDAY", "IYEAR", "DISPCODE",
     "SEQNO", "_PSU", "QSTVER", "QSTLANG",
     # phone screening
     "CTELENUM", "PVTRESD1", "COLGHOUS", "STATERES", "CELLFON3", "LADULT",
@@ -95,7 +96,7 @@ def sentinel_codes(uniq):
     return {int("8" * width)}, {int("7" * width), int("9" * width)}
 
 
-def recode_sentinels(x_train, x_test, names, cat_max_unique=10):
+def recode_sentinels(x_train, x_test, names, cat_max_unique=55):
     x_train = x_train.copy()
     x_test = x_test.copy()
     kinds = []
@@ -165,7 +166,8 @@ def clean_data(x_train, x_test, y_train):
         y_train: shape=(N,). Raw training labels, as returned by load_csv_data.
 
     Returns:
-        x_train: shape=(N, D'). Cleaned/processed training features.
+        x_train: shape=(N, D'). Cleaned/processed training features, with a
+            leading column of ones for the intercept.
         x_test: shape=(M, D'). Cleaned/processed test features, using the
             same transformation (e.g. same normalization stats) as x_train.
         y_train: shape=(N,). Labels, recoded to {0, 1} if needed.
@@ -176,6 +178,42 @@ def clean_data(x_train, x_test, y_train):
     x_train, x_test = impute_missing(x_train, x_test, kinds)
     x_train, x_test = standardize(x_train, x_test)
 
+    # Intercept column, added after standardize so it stays at 1.
+    x_train = np.c_[np.ones(x_train.shape[0]), x_train]
+    x_test = np.c_[np.ones(x_test.shape[0]), x_test]
+
     y_train = (y_train == 1).astype(int)
 
     return x_train, x_test, y_train
+
+
+
+
+
+
+
+# def clean_data(x_train, x_test, y_train, n_features=10, seed=0):
+#     """Mock of clean_data that ignores the raw values and returns synthetic data.
+
+#     Keeps the row counts N and M of the inputs so test_ids still line up with
+#     x_test. Features are standard normal plus a bias column, and labels come
+#     from a noisy linear rule so the models have something to learn.
+
+#     Returns:
+#         x_train: shape=(N, n_features + 1).
+#         x_test: shape=(M, n_features + 1).
+#         y_train: shape=(N,). Labels in {0, 1}.
+#     """
+#     rng = np.random.default_rng(seed)
+#     n, m = x_train.shape[0], x_test.shape[0]
+
+#     x_tr = rng.standard_normal((n, n_features))
+#     x_te = rng.standard_normal((m, n_features))
+
+#     true_w = rng.standard_normal(n_features)
+#     noise = 0.5 * rng.standard_normal(n)
+#     y = (x_tr @ true_w + noise > 0).astype(int)
+
+#     x_tr = np.c_[np.ones(n), x_tr]
+#     x_te = np.c_[np.ones(m), x_te]
+#     return x_tr, x_te, y

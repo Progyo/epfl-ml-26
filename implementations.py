@@ -360,3 +360,121 @@ def reg_logistic_regression(y, tx, lambda_, initial_w, max_iters, gamma):
     losses.append(compute_logistic_loss(y,tx,w))
 
     return ws[-1], losses[-1]
+
+
+def build_k_indices(y, k_fold, seed):
+    """build k indices for k-fold.
+
+    Args:
+        y:      shape=(N,)
+        k_fold: K in K-fold, i.e. the fold num
+        seed:   the random seed
+
+    Returns:
+        A 2D array of shape=(k_fold, N/k_fold) that indicates the data indices for each fold
+
+    >>> build_k_indices(np.array([1., 2., 3., 4.]), 2, 1)
+    array([[3, 2],
+           [0, 1]])
+    """
+    num_row = y.shape[0]
+    interval = int(num_row / k_fold)
+    np.random.seed(seed)
+    indices = np.random.permutation(num_row)
+    k_indices = [indices[k * interval : (k + 1) * interval] for k in range(k_fold)]
+    return np.array(k_indices)
+
+
+
+def cross_validation(y, x, k_indices, k, lambda_, get_trained_weights, loss_func):
+    """return the loss of a model for a fold corresponding to k_indices
+
+    Args:
+        y:                   shape=(N,)
+        x:                   shape=(N, D)
+        k_indices:           2D array returned by build_k_indices()
+        k:                   scalar, the k-th fold (N.B.: not to confused with k_fold which is the fold nums)
+        lambda_:             scalar, the regularization parameter passed to get_trained_weights
+        get_trained_weights: function (y, x, lambda_) -> w, trains the model and returns its weights
+        loss_func:           function (y, x, w) -> scalar, the loss (or score, e.g. F1) to evaluate
+
+    Returns:
+        train and test values, as computed by loss_func
+    """
+    
+    train_indices = np.delete(k_indices, k, axis=0).flatten()
+    test_indices = k_indices[k]
+
+    x_train = x[train_indices]
+    y_train = y[train_indices]
+
+    x_test = x[test_indices]
+    y_test = y[test_indices]
+
+    w = get_trained_weights(y_train, x_train, lambda_)
+
+    loss_tr = loss_func(y_train, x_train, w)
+    loss_te = loss_func(y_test, x_test, w)
+
+    return loss_tr, loss_te
+
+
+def f1_score(y, y_pred):
+    """F1 score with label 1 as the positive class."""
+    tp = np.sum((y == 1) & (y_pred == 1))
+    fp = np.sum((y == 0) & (y_pred == 1))
+    fn = np.sum((y == 1) & (y_pred == 0))
+    if tp == 0:
+        return 0.0
+    return 2 * tp / (2 * tp + fp + fn)
+
+
+def compute_logistic_f1s(y, tx, w, thresholds):
+    """F1 score of a logistic model for each cutoff in thresholds, predicting 1 when sigma(tx @ w) >= cutoff."""
+    p = 1 / (1 + np.exp(-tx @ w))
+    return np.array([f1_score(y, (p >= t).astype(int)) for t in thresholds])
+
+
+
+def reg_logistic_regression_newton(y, tx, lambda_, initial_w, max_iters):
+    
+    w = initial_w
+    for n_iter in range(max_iters):
+        g = compute_logistic_gradient(y, tx, w) + 2 * lambda_ * w
+        p = 1 / (1 + np.exp(-tx @ w))
+        # Hessian: 1/N X^T diag(p(1-p)) X + 2 lambda_ I
+        h = (tx * (p * (1 - p))[:, None]).T @ tx / y.shape[0] + 2 * lambda_ * np.eye(tx.shape[1])
+        w = w - np.linalg.solve(h, g)
+    return w, compute_logistic_loss(y, tx, w)
+
+
+
+def cross_fold_reg_logistic_regression_newton(y, tx, initial_w, k_fold, lambdas, thresholds, max_iters, seed=1):
+    """Picks lambda and the decision cutoff jointly by maximizing the mean held-out F1 over k folds,
+    then retrains on all of (y, tx) with the chosen lambda.
+
+    Returns:
+        w:         shape=(D,). The weights trained with the chosen lambda.
+        loss:      float. The negative log-likelihood corresponding to ``w``.
+        threshold: float. The chosen cutoff on sigma(tx @ w).
+    """
+
+    k_indices = build_k_indices(y, k_fold, seed)
+
+    def get_trained_weights(y_, tx_, lambda_):
+        return reg_logistic_regression_newton(y_, tx_, lambda_, initial_w, max_iters)[0]
+
+    def f1s(y_, tx_, w):
+        return compute_logistic_f1s(y_, tx_, w, thresholds)
+
+    # f1_tes[i, j]: mean held-out F1 for lambdas[i] with cutoff thresholds[j]
+    f1_tes = np.zeros((len(lambdas), len(thresholds)))
+    for i, lambda_ in enumerate(lambdas):
+        for k in range(k_fold):
+            _, f1_te = cross_validation(y, tx, k_indices, k, lambda_, get_trained_weights, f1s)
+            f1_tes[i] += f1_te / k_fold
+
+    i, j = np.unravel_index(np.argmax(f1_tes), f1_tes.shape)
+
+    w, loss = reg_logistic_regression_newton(y, tx, lambdas[i], initial_w, max_iters)
+    return w, loss, thresholds[j]
