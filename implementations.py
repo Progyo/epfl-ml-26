@@ -1,5 +1,9 @@
 import numpy as np
 
+# Most of the implementations were just copied from my solutions
+# for the weekly exercises
+
+
 def compute_loss(y, tx, w):
     """Calculate the loss using either MSE or MAE.
 
@@ -11,13 +15,8 @@ def compute_loss(y, tx, w):
     Returns:
         the value of the loss (a scalar), corresponding to the input parameters w.
     """
-    # # ***************************************************
-    # # INSERT YOUR CODE HERE
-    # # TODO: compute loss by MSE
-    # # ***************************************************
-    # raise NotImplementedError
 
-    return np.sum(np.pow(y - tx @ w, 2))/(2*y.shape[0])
+    return np.sum((y - tx @ w) ** 2) / (2 * y.shape[0])
 
 
 def compute_gradient(y, tx, w):
@@ -31,11 +30,6 @@ def compute_gradient(y, tx, w):
     Returns:
         An array of shape (2, ) (same shape as w), containing the gradient of the loss at w.
     """
-    # ***************************************************
-    # INSERT YOUR CODE HERE
-    # TODO: compute gradient vector
-    # ***************************************************
-    # raise NotImplementedError
 
     xT = tx.T
 
@@ -43,13 +37,14 @@ def compute_gradient(y, tx, w):
     # print(f'w: {w.shape}')
     # print(f'y: {y.shape}')
 
-    e = y - tx@w
+    e = y - tx @ w
 
     # print(f'e: {e.shape}')
 
-    g = -(xT@e)/y.shape[0]
-    
+    g = -(xT @ e) / y.shape[0]
+
     return g
+
 
 def mean_squared_error_gd(y, tx, initial_w, max_iters, gamma):
     """Linear regression using gradient descent.
@@ -69,21 +64,11 @@ def mean_squared_error_gd(y, tx, initial_w, max_iters, gamma):
     losses = []
     w = initial_w
     for n_iter in range(max_iters):
-        # ***************************************************
-        # INSERT YOUR CODE HERE
-        # TODO: compute gradient and loss
-        # ***************************************************
-        # raise NotImplementedError
-        
-        loss = compute_loss(y,tx,w)
-        g = compute_gradient(y,tx,w)
-        
-        # ***************************************************
-        # INSERT YOUR CODE HERE
-        # TODO: update w by gradient
-        # ***************************************************
-        # raise NotImplementedError
-        w = w - gamma*g
+
+        loss = compute_loss(y, tx, w)
+        g = compute_gradient(y, tx, w)
+
+        w = w - gamma * g
 
         # store w and loss
         ws.append(w)
@@ -94,7 +79,7 @@ def mean_squared_error_gd(y, tx, initial_w, max_iters, gamma):
         #     )
         # )
 
-    losses.append(compute_loss(y,tx,w))
+    losses.append(compute_loss(y, tx, w))
 
     return ws[-1], losses[-1]
 
@@ -119,28 +104,22 @@ def mean_squared_error_sgd(y, tx, initial_w, max_iters, gamma):
     w = initial_w
 
     for n_iter in range(max_iters):
-        # ***************************************************
-        # INSERT YOUR CODE HERE
-        # TODO: implement stochastic gradient descent.
-        # ***************************************************
-        # raise NotImplementedError
 
         n = np.random.randint(len(y))
-        y_n = y[n:n+1]
-        tx_n = tx[n:n+1]
-        loss = compute_loss(y_n,tx_n,w)
+        y_n = y[n : n + 1]
+        tx_n = tx[n : n + 1]
+        loss = compute_loss(y_n, tx_n, w)
 
         # idx = np.random.permutation(len(y))
         # y_shuf, tx_shuf = y[idx], tx[idx]
-        
-         
+
         # for minibatch_y, minibatch_tx in zip(y_shuf, tx_shuf):
-    
-        g = compute_gradient(y_n,tx_n,w)
-        w = w - gamma*g
-        
+
+        g = compute_gradient(y_n, tx_n, w)
+        w = w - gamma * g
+
         ws.append(w)
-        
+
         # print(
         #     "SGD iter. {bi}/{ti}: loss={l}, w0={w0}, w1={w1}".format(
         #         bi=n_iter, ti=max_iters - 1, l=loss, w0=w[0], w1=w[1]
@@ -148,9 +127,9 @@ def mean_squared_error_sgd(y, tx, initial_w, max_iters, gamma):
         # )
         losses.append(loss)
 
-    losses.append(compute_loss(y,tx,w))
+    losses.append(compute_loss(y, tx, w))
 
-    return ws[-1], losses[-1] 
+    return ws[-1], losses[-1]
 
 
 def least_squares(y, tx):
@@ -166,19 +145,14 @@ def least_squares(y, tx):
         w: shape=(D,). The optimal weight vector.
         loss: float. The MSE loss corresponding to ``w``.
     """
-    # ***************************************************
-    # INSERT YOUR CODE HERE
-    # least squares: TODO
     # returns mse, and optimal weights
-    # ***************************************************
-    
+
     # Computes the "exact" solution, `x`, of the well-determined, i.e., full
-        # rank, linear matrix equation `ax = b`.
+    # rank, linear matrix equation `ax = b`.
 
+    w = np.linalg.solve(tx.T @ tx, tx.T @ y)
 
-    w = np.linalg.solve(tx.T@tx,tx.T@y)
-
-    return w, compute_loss(y,tx,w).item()
+    return w, compute_loss(y, tx, w)
 
 
 def ridge_regression(y, tx, lambda_):
@@ -195,24 +169,25 @@ def ridge_regression(y, tx, lambda_):
         w: shape=(D,). The optimal weight vector.
         loss: float. The MSE loss corresponding to ``w``, *without* the penalty term.
     """
-    # raise NotImplementedError
 
     # mse = compute_loss(y,tx, w)
     # loss = mse + lambda_ * np.sum(np.pow(w,2))
-    
-    # L' = MSE' + 2 lambda w = -1/N X^T(y-Xw) + 2 lambda w 
 
-    #L' = 0 <=> -1/N X^T(y-Xw) + 2 lambda w  = X^T(y-Xw) = 2N lambda w
+    # L' = MSE' + 2 lambda w = -1/N X^T(y-Xw) + 2 lambda w
+
+    # L' = 0 <=> -1/N X^T(y-Xw) + 2 lambda w  = X^T(y-Xw) = 2N lambda w
     # <=> X^Ty - X^T Xw = 2N lambda w <=> X^Ty = X^T Xw + 2N lambda w <=> X^Ty = (X^T X + 2N lambda I)w
 
     # Computes the "exact" solution, `x`, of the well-determined, i.e., full
-            # rank, linear matrix equation `ax = b`.
+    # rank, linear matrix equation `ax = b`.
 
-            #a = (X^T X + 2N lambda I)
-            #b = X^Ty
-    w = np.linalg.solve(tx.T @ tx + 2*y.shape[0] * lambda_ * np.eye(tx.shape[1]),tx.T@y)
+    # a = (X^T X + 2N lambda I)
+    # b = X^Ty
+    w = np.linalg.solve(
+        tx.T @ tx + 2 * y.shape[0] * lambda_ * np.eye(tx.shape[1]), tx.T @ y
+    )
 
-    return w, compute_loss(y, tx, w).item()
+    return w, compute_loss(y, tx, w)
 
 
 def compute_logistic_loss(y, tx, w):
@@ -234,7 +209,7 @@ def compute_logistic_loss(y, tx, w):
 
     # logaddexp(0, z) is log(1 + e^z) computed without overflowing for large z,
     # which the naive log(1 + exp(z)) would do as soon as a point saturates.
-    return np.mean(np.logaddexp(0, z) - y*z)
+    return np.mean(np.logaddexp(0, z) - y * z)
 
 
 def compute_logistic_gradient(y, tx, w):
@@ -250,10 +225,10 @@ def compute_logistic_gradient(y, tx, w):
     """
 
     # L' = 1/m sum (1/(1 + e^(-wx-b)) - y)x
-    
+
     # g = np.sum(1/(1+np.exp(-w@tx))-y)*tx/y.shape[0]
-    g = (1/(1+np.exp(-tx@w))-y) @ tx/y.shape[0]
-    
+    g = (1 / (1 + np.exp(-tx @ w)) - y) @ tx / y.shape[0]
+
     return g
 
 
@@ -275,21 +250,11 @@ def logistic_regression(y, tx, initial_w, max_iters, gamma):
     losses = []
     w = initial_w
     for n_iter in range(max_iters):
-        # ***************************************************
-        # INSERT YOUR CODE HERE
-        # TODO: compute gradient and loss
-        # ***************************************************
-        # raise NotImplementedError
-        
-        loss = compute_logistic_loss(y,tx,w)
-        g = compute_logistic_gradient(y,tx,w)
-        
-        # ***************************************************
-        # INSERT YOUR CODE HERE
-        # TODO: update w by gradient
-        # ***************************************************
-        # raise NotImplementedError
-        w = w - gamma*g
+
+        loss = compute_logistic_loss(y, tx, w)
+        g = compute_logistic_gradient(y, tx, w)
+
+        w = w - gamma * g
 
         # store w and loss
         ws.append(w)
@@ -300,10 +265,9 @@ def logistic_regression(y, tx, initial_w, max_iters, gamma):
         #     )
         # )
 
-    losses.append(compute_logistic_loss(y,tx,w))
+    losses.append(compute_logistic_loss(y, tx, w))
 
     return ws[-1], losses[-1]
-    
 
 
 def reg_logistic_regression(y, tx, lambda_, initial_w, max_iters, gamma):
@@ -329,24 +293,14 @@ def reg_logistic_regression(y, tx, lambda_, initial_w, max_iters, gamma):
     losses = []
     w = initial_w
     for n_iter in range(max_iters):
-        # ***************************************************
-        # INSERT YOUR CODE HERE
-        # TODO: compute gradient and loss
-        # ***************************************************
-        # raise NotImplementedError
-        
-        loss = compute_logistic_loss(y,tx,w)
-        g = compute_logistic_gradient(y,tx,w)
+
+        loss = compute_logistic_loss(y, tx, w)
+        g = compute_logistic_gradient(y, tx, w)
 
         # Same as linear regression (ridge regression)
-        g  = g + lambda_ * 2*w
-        
-        # ***************************************************
-        # INSERT YOUR CODE HERE
-        # TODO: update w by gradient
-        # ***************************************************
-        # raise NotImplementedError
-        w = w - gamma*g
+        g = g + lambda_ * 2 * w
+
+        w = w - gamma * g
 
         # store w and loss
         ws.append(w)
@@ -357,7 +311,7 @@ def reg_logistic_regression(y, tx, lambda_, initial_w, max_iters, gamma):
         #     )
         # )
 
-    losses.append(compute_logistic_loss(y,tx,w))
+    losses.append(compute_logistic_loss(y, tx, w))
 
     return ws[-1], losses[-1]
 
@@ -385,7 +339,6 @@ def build_k_indices(y, k_fold, seed):
     return np.array(k_indices)
 
 
-
 def cross_validation(y, x, k_indices, k, lambda_, get_trained_weights, loss_func):
     """return the loss of a model for a fold corresponding to k_indices
 
@@ -401,7 +354,7 @@ def cross_validation(y, x, k_indices, k, lambda_, get_trained_weights, loss_func
     Returns:
         train and test values, as computed by loss_func
     """
-    
+
     train_indices = np.delete(k_indices, k, axis=0).flatten()
     test_indices = k_indices[k]
 
@@ -435,21 +388,39 @@ def compute_logistic_f1s(y, tx, w, thresholds):
     return np.array([f1_score(y, (p >= t).astype(int)) for t in thresholds])
 
 
+def reg_logistic_regression_newton(y, tx, lambda_, initial_w, max_iters, chunk=1 << 15):
+    """Regularized logistic regression (mean negative log-likelihood + lambda_ * ||w||^2) with Newton's method.
 
-def reg_logistic_regression_newton(y, tx, lambda_, initial_w, max_iters):
-    
-    w = initial_w
+    Gradient and Hessian are summed over chunks of rows in the dtype of tx, into float64 totals that are solved in
+    float64: a float32 tx is never copied to float64, and no N x D temporary is made. Returns w in the dtype of tx.
+    """
+
+    # We had to modify the original regularized logistic regression so that we don't have memory issues
+    n, d = tx.shape
+    y = np.asarray(y, dtype=tx.dtype)
+    w = np.asarray(initial_w, dtype=np.float64)
     for n_iter in range(max_iters):
-        g = compute_logistic_gradient(y, tx, w) + 2 * lambda_ * w
-        p = 1 / (1 + np.exp(-tx @ w))
-        # Hessian: 1/N X^T diag(p(1-p)) X + 2 lambda_ I
-        h = (tx * (p * (1 - p))[:, None]).T @ tx / y.shape[0] + 2 * lambda_ * np.eye(tx.shape[1])
+        w_tx = w.astype(tx.dtype)
+        g, h = np.zeros(d), np.zeros((d, d))
+        for s in range(0, n, chunk):
+            block = tx[s : s + chunk]
+            with np.errstate(
+                over="ignore"
+            ):  # exp overflows to inf for very negative scores, giving p = 0
+                p = 1 / (1 + np.exp(-(block @ w_tx)))
+            g += (p - y[s : s + chunk]) @ block
+            # Hessian: 1/N X^T diag(p(1-p)) X + 2 lambda_ I
+            h += (block * (p * (1 - p))[:, None]).T @ block
+        g = g / n + 2 * lambda_ * w
+        h = h / n + 2 * lambda_ * np.eye(d)
         w = w - np.linalg.solve(h, g)
+    w = w.astype(tx.dtype)
     return w, compute_logistic_loss(y, tx, w)
 
 
-
-def cross_fold_reg_logistic_regression_newton(y, tx, initial_w, k_fold, lambdas, thresholds, max_iters, seed=1):
+def cross_fold_reg_logistic_regression_newton(
+    y, tx, initial_w, k_fold, lambdas, thresholds, max_iters, seed=1
+):
     """Picks lambda and the decision cutoff jointly by maximizing the mean held-out F1 over k folds,
     then retrains on all of (y, tx) with the chosen lambda.
 
@@ -471,7 +442,9 @@ def cross_fold_reg_logistic_regression_newton(y, tx, initial_w, k_fold, lambdas,
     f1_tes = np.zeros((len(lambdas), len(thresholds)))
     for i, lambda_ in enumerate(lambdas):
         for k in range(k_fold):
-            _, f1_te = cross_validation(y, tx, k_indices, k, lambda_, get_trained_weights, f1s)
+            _, f1_te = cross_validation(
+                y, tx, k_indices, k, lambda_, get_trained_weights, f1s
+            )
             f1_tes[i] += f1_te / k_fold
 
     i, j = np.unravel_index(np.argmax(f1_tes), f1_tes.shape)

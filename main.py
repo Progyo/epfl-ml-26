@@ -2,7 +2,7 @@ from functools import partial
 
 import numpy as np
 
-from cleaner import clean_data
+from cleaner import add_interactions, clean_data, interaction_pairs
 from helpers import load_csv_data, create_csv_submission
 from implementations import (
     least_squares,
@@ -91,6 +91,8 @@ def main():
     x_train, x_test, y_train = clean_data(x_train, x_test, y_train)
 
     x_tr, y_tr, x_val, y_val = split_data(x_train, y_train)
+    # Interaction columns picked on the training split only, so the validation labels play no part in them.
+    x_tr, x_val = add_interactions(x_tr, x_val, interaction_pairs(y_tr, x_tr))
 
     best_name, best_fn, best_is_logistic, best = None, None, None, -np.inf
     for name, fn, is_logistic in MODELS:
@@ -107,8 +109,11 @@ def main():
             best_name, best_fn, best_is_logistic, best = name, fn, is_logistic, val_f1
 
     print(f"best model: {best_name} (val f1={best:.4f})")
+    del x_tr, x_val
 
-    # The cross-fold model re-tunes lambda and its cutoff on the full training set here.
+    # Interaction columns picked again on all training rows. The cross-fold model re-tunes lambda and its cutoff
+    # on the full training set here.
+    x_train, x_test = add_interactions(x_train, x_test, interaction_pairs(y_train, x_train))
     w, _, threshold = fit(best_fn, y_train, x_train)
     y_pred = predict(x_test, w, best_is_logistic, threshold)
     create_csv_submission(test_ids, np.where(y_pred == 1, 1, -1), "submission.csv")
