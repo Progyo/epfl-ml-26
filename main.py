@@ -1,7 +1,9 @@
+import argparse
 from functools import partial
 
 import numpy as np
 
+import old_cleaner
 from cleaner import add_interactions, clean_data, interaction_pairs
 from helpers import load_csv_data, create_csv_submission
 from implementations import (
@@ -85,14 +87,16 @@ def accuracy(y, y_pred):
     return np.mean(y == y_pred)
 
 
-def main():
+def main(use_old_cleaner=False):
     x_train, x_test, y_train, train_ids, test_ids = load_csv_data(DATA_DIR)
 
-    x_train, x_test, y_train = clean_data(x_train, x_test, y_train)
+    clean = old_cleaner.clean_data if use_old_cleaner else clean_data
+    x_train, x_test, y_train = clean(x_train, x_test, y_train)
 
     x_tr, y_tr, x_val, y_val = split_data(x_train, y_train)
-    # Interaction columns picked on the training split only, so the validation labels play no part in them.
-    x_tr, x_val = add_interactions(x_tr, x_val, interaction_pairs(y_tr, x_tr))
+    if not use_old_cleaner:
+        # Interaction columns picked on the training split only, so the validation labels play no part in them.
+        x_tr, x_val = add_interactions(x_tr, x_val, interaction_pairs(y_tr, x_tr))
 
     best_name, best_fn, best_is_logistic, best = None, None, None, -np.inf
     for name, fn, is_logistic in MODELS:
@@ -113,11 +117,19 @@ def main():
 
     # Interaction columns picked again on all training rows. The cross-fold model re-tunes lambda and its cutoff
     # on the full training set here.
-    x_train, x_test = add_interactions(x_train, x_test, interaction_pairs(y_train, x_train))
+    if not use_old_cleaner:
+        x_train, x_test = add_interactions(x_train, x_test, interaction_pairs(y_train, x_train))
     w, _, threshold = fit(best_fn, y_train, x_train)
     y_pred = predict(x_test, w, best_is_logistic, threshold)
-    create_csv_submission(test_ids, np.where(y_pred == 1, 1, -1), "submission.csv")
+    submission = "submission_old_cleaner.csv" if use_old_cleaner else "submission.csv"
+    create_csv_submission(test_ids, np.where(y_pred == 1, 1, -1), submission)
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Compare all models on a validation split and write a submission.")
+    parser.add_argument(
+        "--old-cleaner",
+        action="store_true",
+        help="clean with old_cleaner.py (the 2026-10-20 pipeline, no interaction columns) as a baseline",
+    )
+    main(parser.parse_args().old_cleaner)

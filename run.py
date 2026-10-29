@@ -4,8 +4,6 @@ from cleaner import add_interactions, clean_data, interaction_pairs
 from helpers import create_csv_submission, load_csv_data
 from implementations import reg_logistic_regression_newton, compute_logistic_f1s, build_k_indices,f1_score, compute_logistic_loss
 
-import pickle
-
 from time import time
 
 DATA_DIR = "dataset"
@@ -74,15 +72,13 @@ def main():
     # now = time()
 
     # print('Saving model weights')
-    # with open('model_weights.pkl','wb') as file:
-    #     pickle.dump(w, file)
+    # np.save('model_weights.npy', w)
 
     #### END OF TRAINING CODE
 
     #### Load model from file
     print('Loading model weights')
-    with open('model_weights.pkl','rb') as file:
-        w : np.ndarray = pickle.load(file)
+    w = np.load('model_weights.npy')
 
     print(f'Took {(time() - now):.2f} seconds')
     now = time()

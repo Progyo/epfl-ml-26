@@ -288,23 +288,34 @@ def one_hot(train_col, test_col):
     return train_col[:, None] == levels, test_col[:, None] == levels
 
 
-def encode(x_train, x_test, kinds):
+def encode(x_train, x_test, kinds, one_hot_encoding=True, missing_indicators=True):
     """Categorical columns one-hot encoded; the others imputed, plus a 0/1 column marking where they were missing.
 
     Returns float32 matrices: a leading column of ones for the intercept, the numeric columns, then the 0/1
     columns. Exact duplicates among the 0/1 columns are dropped: questions asked together are missing on the same
     rows, and duplicate columns would make tx^T tx singular.
+
+    For the ablation (ablation.py): one_hot_encoding=False keeps the categorical columns as their rank, imputed like
+    the numeric ones. missing_indicators=False adds no 0/1 missing columns, and one-hot encoding then counts missing
+    as the most common level instead of as a level of its own.
     """
     # Select all categorical and numerical columns
-    cat = [j for j, kind in enumerate(kinds) if is_categorical(x_train[:, j], kind)]
+    cat = [j for j, kind in enumerate(kinds) if one_hot_encoding and is_categorical(x_train[:, j], kind)]
     num = [j for j in range(len(kinds)) if j not in cat]
     # Also select any columns with a missing value
-    missing = [j for j in num if np.isnan(x_train[:, j]).any()]
-    
+    missing = [j for j in num if missing_indicators and np.isnan(x_train[:, j]).any()]
+
     flags = [(np.isnan(x_train[:, missing]), np.isnan(x_test[:, missing]))]
-    flags += [one_hot(x_train[:, j], x_test[:, j]) for j in cat]
+    if missing_indicators:
+        flags += [one_hot(x_train[:, j], x_test[:, j]) for j in cat]
+    else:
+        # Missing answers count as the most common level, which is the reference and gets no column
+        for j in cat:
+            train_col, test_col = impute_missing(x_train[:, [j]], x_test[:, [j]], ["categorical"])
+            flags.append(one_hot(train_col[:, 0], test_col[:, 0]))
     flags_train, flags_test = np.hstack([f[0] for f in flags]), np.hstack([f[1] for f in flags])
-    first = np.sort(np.unique(flags_train, axis=1, return_index=True)[1])
+    # np.unique can't take a matrix without columns, which both switches off would give
+    first = np.sort(np.unique(flags_train, axis=1, return_index=True)[1]) if flags_train.shape[1] else []
     num_train, num_test = impute_missing(x_train[:, num], x_test[:, num], [kinds[j] for j in num])
 
     out = []
@@ -373,13 +384,17 @@ def add_interactions(x_train, x_test, pairs, chunk=1 << 15):
     return standardize(out[0], out[1], start=d)
 
 
-def clean_data(x_train, x_test, y_train):
+def clean_data(x_train, x_test, y_train, codebook=True, max_nan=1, one_hot_encoding=True, missing_indicators=True):
     """Clean and preprocess the raw dataset.
 
     Args:
         x_train: shape=(N, D). Raw training features, as returned by load_csv_data.
         x_test: shape=(M, D). Raw test features, as returned by load_csv_data.
         y_train: shape=(N,). Raw training labels, as returned by load_csv_data.
+        codebook, max_nan, one_hot_encoding, missing_indicators: switch single steps off for the ablation
+            (ablation.py); the defaults are the final pipeline. codebook=False recodes answer codes by the width rule
+            alone (recode_sentinels), max_nan=0.5 drops the columns with half or more of their training values
+            missing (remove_unimportant_columns), and see encode for the other two.
 
     Returns:
         x_train: shape=(N, D'). Cleaned/processed float32 training features, with a
@@ -390,9 +405,9 @@ def clean_data(x_train, x_test, y_train):
     """
     names = list(ALL_COLUMN_NAMES)
     # We iteratively remove and refine the table
-    x_train, x_test, names = remove_unimportant_columns(x_train, x_test, names, DROP, max_nan=1)
-    x_train, x_test, kinds = recode_sentinels(x_train, x_test, names)
-    x_train, x_test = encode(x_train, x_test, kinds)
+    x_train, x_test, names = remove_unimportant_columns(x_train, x_test, names, DROP, max_nan=max_nan)
+    x_train, x_test, kinds = recode_sentinels(x_train, x_test, names, codebook=codebook)
+    x_train, x_test = encode(x_train, x_test, kinds, one_hot_encoding, missing_indicators)
 
     # Standardize as a final step to stabilize the inputs
     x_train, x_test = standardize(x_train, x_test)
